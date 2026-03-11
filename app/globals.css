@@ -1,0 +1,107 @@
+@import url('https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;500;600;700&family=Noto+Sans+JP:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-display: 'Shippori Mincho', serif;
+  --font-body: 'Noto Sans JP', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  background-color: #0a0908;
+  color: #e2ddd2;
+  font-family: var(--font-body);
+}
+
+/* スクロールバー */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: #12110f;
+}
+::-webkit-scrollbar-thumb {
+  background: #3d3a30;
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #6b6555;
+}
+
+/* エディタテキストエリア */
+.lyric-editor {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  line-height: 2;
+  color: #e2ddd2;
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  width: 100%;
+  height: 100%;
+  caret-color: #d4a017;
+}
+
+/* 文字数バッジ */
+.char-count-badge {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: #6b6555;
+  user-select: none;
+  min-width: 2.5rem;
+  text-align: right;
+  /* テキストエリアの font-size:1rem x line-height:2 = 2rem に完全一致 */
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: 2rem;
+  line-height: 1;
+}
+
+/* セクションタグ */
+.section-tag {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: #d4a017;
+  letter-spacing: 0.1em;
+}
+
+/* AI候補アイテム */
+.ai-suggestion-item {
+  transition: all 0.15s ease;
+}
+.ai-suggestion-item:hover {
+  background: #1c1a17;
+  border-color: #d4a017;
+}
+
+/* フェードイン */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in {
+  animation: fadeIn 0.2s ease forwards;
+}
+
+/* パルス（ローディング） */
+@keyframes pulse-gold {
+  0%, 100% { opacity: 0.4; }
+  50%       { opacity: 1; }
+}
+.pulse-gold {
+  animation: pulse-gold 1.2s ease-in-out infinite;
+}

@@ -1,0 +1,24 @@
+# Next.js
+.next/
+out/
+
+# 依存
+node_modules/
+
+# ノートデータ（個人データは除外）
+notes/
+
+# 環境変数
+.env.local
+.env
+
+# ビルド
+build/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# ログ
+*.log
+npm-debug.log*

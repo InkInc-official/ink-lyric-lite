@@ -1,0 +1,379 @@
+"use client";
+
+import { useState, useEffect, useCallback, useRef } from "react";
+import { Save, Pencil, Check, X } from "lucide-react";
+import NoteList from "@/components/NoteList";
+import DraftEditor from "@/components/DraftEditor";
+import LyricEditor from "@/components/LyricEditor";
+import { Note } from "@/lib/types";
+import { generateId } from "@/lib/utils";
+
+// ============================================================
+// localStorage キー
+// ============================================================
+const LS_NOTES    = "inklyric_notes";
+const LS_ACTIVE   = "inklyric_active";
+
+const DRAFT_SEP = "===DRAFT===";
+const LYRIC_SEP = "===LYRIC===";
+
+function parseContent(raw: string): { draft: string; lyric: string } {
+  const di = raw.indexOf(DRAFT_SEP);
+  const li = raw.indexOf(LYRIC_SEP);
+  if (di === -1 && li === -1) return { draft: raw, lyric: "" };
+  const draft = di !== -1 && li !== -1
+    ? raw.slice(di + DRAFT_SEP.length, li).trim()
+    : di !== -1 ? raw.slice(di + DRAFT_SEP.length).trim() : "";
+  const lyric = li !== -1 ? raw.slice(li + LYRIC_SEP.length).trim() : "";
+  return { draft, lyric };
+}
+
+function buildContent(draft: string, lyric: string): string {
+  return `${DRAFT_SEP}\n${draft}\n${LYRIC_SEP}\n${lyric}`;
+}
+
+// ============================================================
+// localStorage ユーティリティ
+// ============================================================
+function loadNotes(): Note[] {
+  try {
+    const raw = localStorage.getItem(LS_NOTES);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveNotes(notes: Note[]) {
+  localStorage.setItem(LS_NOTES, JSON.stringify(notes));
+}
+
+// ============================================================
+// リサイズフック
+// ============================================================
+function useResize(initialWidth: number, min: number, max: number, direction: "right" | "left" = "right") {
+  const [width, setWidth] = useState(initialWidth);
+  const dragging = useRef(false);
+  const startX   = useRef(0);
+  const startW   = useRef(0);
+
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    dragging.current = true;
+    startX.current   = e.clientX;
+    startW.current   = width;
+    document.body.style.cursor     = "col-resize";
+    document.body.style.userSelect = "none";
+  }, [width]);
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!dragging.current) return;
+      const delta    = e.clientX - startX.current;
+      const adjusted = direction === "right" ? delta : -delta;
+      setWidth(Math.min(max, Math.max(min, startW.current + adjusted)));
+    };
+    const onUp = () => {
+      dragging.current = false;
+      document.body.style.cursor     = "";
+      document.body.style.userSelect = "";
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup",   onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup",   onUp);
+    };
+  }, [min, max, direction]);
+
+  return { width, onMouseDown };
+}
+
+function ResizeHandle({ onMouseDown }: { onMouseDown: (e: React.MouseEvent) => void }) {
+  return (
+    <div
+      onMouseDown={onMouseDown}
+      className="w-1 flex-shrink-0 bg-ink-800 hover:bg-amber-500/50 active:bg-amber-500 transition-colors cursor-col-resize"
+      title="ドラッグで幅を調整"
+    />
+  );
+}
+
+// ============================================================
+// Main
+// ============================================================
+export default function Home() {
+  const [notes, setNotes]             = useState<Note[]>([]);
+  const [activeNote, setActiveNote]   = useState<Note | null>(null);
+  const [draft, setDraft]             = useState("");
+  const [lyric, setLyric]             = useState("");
+  const [saved, setSaved]             = useState(false);
+  const [mounted, setMounted]         = useState(false);
+  const autoSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft]     = useState("");
+  const titleInputRef = useRef<HTMLInputElement>(null);
+
+  const colA = useResize(176, 120, 300, "right");
+  const colC = useResize(280, 160, 520, "left");
+
+  // localStorage はクライアントのみ
+  useEffect(() => {
+    setMounted(true);
+    const stored = loadNotes();
+    setNotes(stored);
+    const activeId = localStorage.getItem(LS_ACTIVE);
+    if (activeId) {
+      const note = stored.find((n) => n.id === activeId);
+      if (note) {
+        const { draft: d, lyric: l } = parseContent(note.content);
+        setActiveNote(note);
+        setDraft(d);
+        setLyric(l || d);
+      }
+    }
+  }, []);
+
+  // ノートをlocalStorageに永続化
+  const persistNotes = useCallback((next: Note[]) => {
+    setNotes(next);
+    saveNotes(next);
+  }, []);
+
+  const handleSelect = (note: Note) => {
+    const { draft: d, lyric: l } = parseContent(note.content);
+    setActiveNote(note);
+    setDraft(d);
+    setLyric(l || d);
+    setSaved(false);
+    setEditingTitle(false);
+    localStorage.setItem(LS_ACTIVE, note.id);
+  };
+
+  const handleNew = () => {
+    const id      = generateId();
+    const newNote: Note = {
+      id,
+      filename:  `${id}.txt`,
+      title:     "無題",
+      updatedAt: new Date().toISOString(),
+      content:   buildContent("", ""),
+    };
+    const next = [newNote, ...notes];
+    persistNotes(next);
+    setActiveNote(newNote);
+    setDraft("");
+    setLyric("");
+    setSaved(false);
+    setEditingTitle(false);
+    localStorage.setItem(LS_ACTIVE, newNote.id);
+  };
+
+  // ノート内容を更新して保存
+  const commitSave = useCallback(
+    (noteId: string, draftVal: string, lyricVal: string, title?: string) => {
+      setNotes((prev) => {
+        const next = prev.map((n) =>
+          n.id === noteId
+            ? { ...n, content: buildContent(draftVal, lyricVal), title: title ?? n.title, updatedAt: new Date().toISOString() }
+            : n
+        );
+        saveNotes(next);
+        return next;
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    },
+    []
+  );
+
+  const scheduleAutoSave = useCallback(
+    (draftVal: string, lyricVal: string, noteId: string, title?: string) => {
+      if (autoSaveRef.current) clearTimeout(autoSaveRef.current);
+      autoSaveRef.current = setTimeout(() => {
+        commitSave(noteId, draftVal, lyricVal, title);
+      }, 1500);
+    },
+    [commitSave]
+  );
+
+  const handleDraftChange = (val: string) => {
+    setDraft(val);
+    setLyric(val);
+    setSaved(false);
+    if (activeNote) {
+      const t = notes.find((n) => n.id === activeNote.id)?.title;
+      scheduleAutoSave(val, val, activeNote.id, t);
+    }
+  };
+
+  const handleLyricChange = (val: string) => {
+    setLyric(val);
+    setSaved(false);
+    if (activeNote) {
+      const t = notes.find((n) => n.id === activeNote.id)?.title;
+      scheduleAutoSave(draft, val, activeNote.id, t);
+    }
+  };
+
+  const handleDelete = (id: string) => {
+    const next = notes.filter((n) => n.id !== id);
+    persistNotes(next);
+    if (activeNote?.id === id) {
+      setActiveNote(null);
+      setDraft("");
+      setLyric("");
+      localStorage.removeItem(LS_ACTIVE);
+    }
+  };
+
+  const startEditTitle = () => {
+    const t = notes.find((n) => n.id === activeNote?.id)?.title || "無題";
+    setTitleDraft(t);
+    setEditingTitle(true);
+    setTimeout(() => titleInputRef.current?.focus(), 0);
+  };
+
+  const commitTitle = () => {
+    if (!activeNote || !titleDraft.trim()) return;
+    const newTitle = titleDraft.trim();
+    setNotes((prev) => {
+      const next = prev.map((n) =>
+        n.id === activeNote.id ? { ...n, title: newTitle } : n
+      );
+      saveNotes(next);
+      return next;
+    });
+    setEditingTitle(false);
+    commitSave(activeNote.id, draft, lyric, newTitle);
+  };
+
+  const cancelEditTitle = () => {
+    setEditingTitle(false);
+    setTitleDraft("");
+  };
+
+  const activeTitle = activeNote
+    ? notes.find((n) => n.id === activeNote.id)?.title || "無題"
+    : "";
+
+  // SSR対策：マウント前は何も描画しない
+  if (!mounted) return null;
+
+  return (
+    <div className="flex flex-col h-screen bg-ink-950">
+      {/* トップバー */}
+      <header className="flex items-center justify-between px-5 py-2 border-b border-ink-800 flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <a
+            href="https://inkinc-hp.vercel.app/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+          >
+            <h1 className="text-base text-amber-400 tracking-wider" style={{ fontFamily: "var(--font-display)" }}>
+              Ink Lyric
+            </h1>
+            <span className="text-xs text-ink-600 hidden sm:block" style={{ fontFamily: "var(--font-mono)" }}>
+              Ink Inc. presents
+            </span>
+          </a>
+
+          {activeNote && (
+            <div className="flex items-center gap-1 ml-2 border-l border-ink-800 pl-3">
+              {editingTitle ? (
+                <>
+                  <input
+                    ref={titleInputRef}
+                    value={titleDraft}
+                    onChange={(e) => setTitleDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") commitTitle();
+                      if (e.key === "Escape") cancelEditTitle();
+                    }}
+                    className="bg-ink-900 border border-amber-500 rounded px-2 py-0.5 text-sm text-ink-100 outline-none w-48"
+                    style={{ fontFamily: "var(--font-display)" }}
+                  />
+                  <button onClick={commitTitle} className="p-1 text-amber-400 hover:text-amber-300 transition-colors" title="確定 (Enter)">
+                    <Check size={13} />
+                  </button>
+                  <button onClick={cancelEditTitle} className="p-1 text-ink-500 hover:text-ink-300 transition-colors" title="キャンセル (Esc)">
+                    <X size={13} />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span className="text-sm text-ink-300 max-w-xs truncate" style={{ fontFamily: "var(--font-display)" }}>
+                    {activeTitle}
+                  </span>
+                  <button onClick={startEditTitle} className="p-1 text-ink-600 hover:text-amber-400 transition-colors" title="タイトルを編集">
+                    <Pencil size={11} />
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* 保存インジケーター */}
+        <div className="flex items-center gap-2">
+          {saved && (
+            <span className="text-xs text-amber-400 border border-amber-500/30 px-3 py-1 rounded" style={{ fontFamily: "var(--font-mono)" }}>
+              保存済み
+            </span>
+          )}
+        </div>
+      </header>
+
+      {/* メインレイアウト：3カラム */}
+      <div className="flex flex-1 overflow-hidden">
+
+        {/* A: ノート一覧 */}
+        <aside className="flex-shrink-0 overflow-hidden" style={{ width: colA.width }}>
+          <NoteList
+            notes={notes}
+            activeId={activeNote?.id || null}
+            onSelect={handleSelect}
+            onNew={handleNew}
+            onDelete={handleDelete}
+          />
+        </aside>
+
+        <ResizeHandle onMouseDown={colA.onMouseDown} />
+
+        {/* B: ドラフトゾーン */}
+        <main className="flex-1 overflow-hidden min-w-0">
+          {activeNote ? (
+            <DraftEditor
+              content={draft}
+              onChange={handleDraftChange}
+              noteTitle={activeTitle}
+              onAiRequest={() => {}}
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full text-ink-700 gap-3">
+              <h2 className="text-2xl text-ink-800" style={{ fontFamily: "var(--font-display)" }}>
+                Ink Lyric
+              </h2>
+              <p className="text-sm">左からノートを選択するか、新規作成してください</p>
+            </div>
+          )}
+        </main>
+
+        <ResizeHandle onMouseDown={colC.onMouseDown} />
+
+        {/* C: 清書ゾーン */}
+        <aside className="flex-shrink-0 overflow-hidden" style={{ width: colC.width }}>
+          {activeNote ? (
+            <LyricEditor
+              content={lyric}
+              onChange={handleLyricChange}
+              onAiRequest={() => {}}
+            />
+          ) : null}
+        </aside>
+
+      </div>
+    </div>
+  );
+}
