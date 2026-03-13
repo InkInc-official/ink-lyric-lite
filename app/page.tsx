@@ -312,7 +312,7 @@ export default function Home() {
             className="flex items-center gap-3 hover:opacity-80 transition-opacity"
           >
             <h1 className="text-base text-amber-400 tracking-wider" style={{ fontFamily: "var(--font-display)" }}>
-              Ink Lyric
+              Ink Lyric Lite
             </h1>
             <span className="text-xs text-ink-600 hidden sm:block" style={{ fontFamily: "var(--font-mono)" }}>
               Ink Inc. presents
@@ -363,7 +363,7 @@ export default function Home() {
             </span>
           )}
           <span className="text-xs text-ink-700 select-none" style={{ fontFamily: "var(--font-mono)" }}>
-            v1.0.3
+            v1.0.4
           </span>
         </div>
       </header>
