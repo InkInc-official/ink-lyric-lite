@@ -198,12 +198,36 @@ export default function Home() {
   );
 
   const handleDraftChange = (val: string) => {
+    const prevLines  = draft.split("\n");
+    const nextLines  = val.split("\n");
+    const lyricLines = lyric.split("\n");
+
+    // 行単位でCカラムに反映
+    // B行が変わった → C該当行を上書き
+    // B行が増えた  → Cにも追加
+    // B行が減った  → Cも削除（nextLinesの長さに合わせる）
+    const newLyricLines: string[] = nextLines.map((bLine, i) => {
+      const prevB = prevLines[i];
+      const currC = lyricLines[i];
+      if (i >= prevLines.length) {
+        // Bで新規追加された行 → そのままCに追加
+        return bLine;
+      }
+      if (bLine === prevB) {
+        // B行が変わっていない → Cの値を維持
+        return currC ?? bLine;
+      }
+      // B行が変わった → Cを上書き
+      return bLine;
+    });
+
+    const newLyric = newLyricLines.join("\n");
     setDraft(val);
-    setLyric(val);
+    setLyric(newLyric);
     setSaved(false);
     if (activeNote) {
       const t = notes.find((n) => n.id === activeNote.id)?.title;
-      scheduleAutoSave(val, val, activeNote.id, t);
+      scheduleAutoSave(val, newLyric, activeNote.id, t);
     }
   };
 
