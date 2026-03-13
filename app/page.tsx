@@ -109,6 +109,7 @@ export default function Home() {
   const [saved, setSaved]             = useState(false);
   const [mounted, setMounted]         = useState(false);
   const autoSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevDraftRef = useRef<string>("");
 
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft]     = useState("");
@@ -145,6 +146,7 @@ export default function Home() {
     setActiveNote(note);
     setDraft(d);
     setLyric(l || d);
+    prevDraftRef.current = d;
     setSaved(false);
     setEditingTitle(false);
     localStorage.setItem(LS_ACTIVE, note.id);
@@ -164,6 +166,7 @@ export default function Home() {
     setActiveNote(newNote);
     setDraft("");
     setLyric("");
+    prevDraftRef.current = "";
     setSaved(false);
     setEditingTitle(false);
     localStorage.setItem(LS_ACTIVE, newNote.id);
@@ -198,30 +201,43 @@ export default function Home() {
   );
 
   const handleDraftChange = (val: string) => {
-    const prevLines  = draft.split("\n");
+    const prevLines  = prevDraftRef.current.split("\n");
     const nextLines  = val.split("\n");
     const lyricLines = lyric.split("\n");
 
-    // 行単位でCカラムに反映
-    // B行が変わった → C該当行を上書き
-    // B行が増えた  → Cにも追加
-    // B行が減った  → Cも削除（nextLinesの長さに合わせる）
-    const newLyricLines: string[] = nextLines.map((bLine, i) => {
-      const prevB = prevLines[i];
-      const currC = lyricLines[i];
-      if (i >= prevLines.length) {
-        // Bで新規追加された行 → そのままCに追加
-        return bLine;
+    // LCSベースのdiff：B行の追加・削除・変更を正確に検出してCに反映
+    const lcs = (a: string[], b: string[]): number[][] => {
+      const m = a.length, n = b.length;
+      const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+      for (let i = 1; i <= m; i++)
+        for (let j = 1; j <= n; j++)
+          dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1] + 1 : Math.max(dp[i-1][j], dp[i][j-1]);
+      return dp;
+    };
+
+    const dp = lcs(prevLines, nextLines);
+    const mapping: (number | null)[] = Array(nextLines.length).fill(null);
+
+    let i = prevLines.length, j = nextLines.length;
+    while (i > 0 && j > 0) {
+      if (prevLines[i-1] === nextLines[j-1]) {
+        mapping[j-1] = i-1;
+        i--; j--;
+      } else if (dp[i-1][j] > dp[i][j-1]) {
+        i--;
+      } else {
+        j--;
       }
-      if (bLine === prevB) {
-        // B行が変わっていない → Cの値を維持
-        return currC ?? bLine;
-      }
-      // B行が変わった → Cを上書き
-      return bLine;
+    }
+
+    const newLyricLines: string[] = nextLines.map((bLine, ni) => {
+      const prevIdx = mapping[ni];
+      if (prevIdx === null) return bLine;
+      return lyricLines[prevIdx] ?? bLine;
     });
 
     const newLyric = newLyricLines.join("\n");
+    prevDraftRef.current = val;
     setDraft(val);
     setLyric(newLyric);
     setSaved(false);
@@ -339,13 +355,16 @@ export default function Home() {
           )}
         </div>
 
-        {/* 保存インジケーター */}
-        <div className="flex items-center gap-2">
+        {/* 保存インジケーター・バージョン */}
+        <div className="flex items-center gap-3">
           {saved && (
             <span className="text-xs text-amber-400 border border-amber-500/30 px-3 py-1 rounded" style={{ fontFamily: "var(--font-mono)" }}>
               保存済み
             </span>
           )}
+          <span className="text-xs text-ink-700 select-none" style={{ fontFamily: "var(--font-mono)" }}>
+            v1.0.3
+          </span>
         </div>
       </header>
 
