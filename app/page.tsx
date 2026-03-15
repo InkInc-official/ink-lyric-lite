@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Save, Pencil, Check, X } from "lucide-react";
+import { Save, Pencil, Check, X, FileText, PenLine, BookCheck } from "lucide-react";
 import NoteList from "@/components/NoteList";
 import DraftEditor from "@/components/DraftEditor";
 import LyricEditor from "@/components/LyricEditor";
@@ -115,8 +115,19 @@ export default function Home() {
   const [titleDraft, setTitleDraft]     = useState("");
   const titleInputRef = useRef<HTMLInputElement>(null);
 
+  const [isMobile, setIsMobile]   = useState(false);
+  const [activeTab, setActiveTab] = useState<"notes" | "draft" | "lyric">("notes");
+
   const colA = useResize(176, 120, 300, "right");
   const colC = useResize(280, 160, 520, "left");
+
+  // isMobile判定
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   // localStorage はクライアントのみ
   useEffect(() => {
@@ -150,6 +161,7 @@ export default function Home() {
     setSaved(false);
     setEditingTitle(false);
     localStorage.setItem(LS_ACTIVE, note.id);
+    if (isMobile) setActiveTab("draft");
   };
 
   const handleNew = () => {
@@ -170,6 +182,7 @@ export default function Home() {
     setSaved(false);
     setEditingTitle(false);
     localStorage.setItem(LS_ACTIVE, newNote.id);
+    if (isMobile) setActiveTab("draft");
   };
 
   // ノート内容を更新して保存
@@ -363,60 +376,125 @@ export default function Home() {
             </span>
           )}
           <span className="text-xs text-ink-700 select-none" style={{ fontFamily: "var(--font-mono)" }}>
-            v1.0.6
+            v1.0.7
           </span>
         </div>
       </header>
 
-      {/* メインレイアウト：3カラム */}
-      <div className="flex flex-1 overflow-hidden">
-
-        {/* A: ノート一覧 */}
-        <aside className="flex-shrink-0 overflow-hidden" style={{ width: colA.width }}>
-          <NoteList
-            notes={notes}
-            activeId={activeNote?.id || null}
-            onSelect={handleSelect}
-            onNew={handleNew}
-            onDelete={handleDelete}
-          />
-        </aside>
-
-        <ResizeHandle onMouseDown={colA.onMouseDown} />
-
-        {/* B: ドラフトゾーン */}
-        <main className="flex-1 overflow-hidden min-w-0">
-          {activeNote ? (
-            <DraftEditor
-              content={draft}
-              onChange={handleDraftChange}
-              noteTitle={activeTitle}
-              onAiRequest={() => {}}
+      {/* ============================================================ */}
+      {/* PCレイアウト：3カラム                                        */}
+      {/* ============================================================ */}
+      {!isMobile && (
+        <div className="flex flex-1 overflow-hidden">
+          <aside className="flex-shrink-0 overflow-hidden" style={{ width: colA.width }}>
+            <NoteList
+              notes={notes}
+              activeId={activeNote?.id || null}
+              onSelect={handleSelect}
+              onNew={handleNew}
+              onDelete={handleDelete}
             />
-          ) : (
-            <div className="flex flex-col items-center justify-center h-full text-ink-700 gap-3">
-              <h2 className="text-2xl text-ink-800" style={{ fontFamily: "var(--font-display)" }}>
-                Ink Lyric
-              </h2>
-              <p className="text-sm">左からノートを選択するか、新規作成してください</p>
-            </div>
-          )}
-        </main>
+          </aside>
+          <ResizeHandle onMouseDown={colA.onMouseDown} />
+          <main className="flex-1 overflow-hidden min-w-0">
+            {activeNote ? (
+              <DraftEditor
+                content={draft}
+                onChange={handleDraftChange}
+                noteTitle={activeTitle}
+                onAiRequest={() => {}}
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full text-ink-700 gap-3">
+                <h2 className="text-2xl text-ink-800" style={{ fontFamily: "var(--font-display)" }}>
+                  Ink Lyric Lite
+                </h2>
+                <p className="text-sm">左からノートを選択するか、新規作成してください</p>
+              </div>
+            )}
+          </main>
+          <ResizeHandle onMouseDown={colC.onMouseDown} />
+          <aside className="flex-shrink-0 overflow-hidden" style={{ width: colC.width }}>
+            {activeNote ? (
+              <LyricEditor
+                content={lyric}
+                onChange={handleLyricChange}
+                onAiRequest={() => {}}
+              />
+            ) : null}
+          </aside>
+        </div>
+      )}
 
-        <ResizeHandle onMouseDown={colC.onMouseDown} />
+      {/* ============================================================ */}
+      {/* スマホレイアウト：タブ切り替え                               */}
+      {/* ============================================================ */}
+      {isMobile && (
+        <div className="flex flex-col flex-1 overflow-hidden">
+          {/* タブコンテンツ */}
+          <div className="flex-1 overflow-hidden">
+            {activeTab === "notes" && (
+              <NoteList
+                notes={notes}
+                activeId={activeNote?.id || null}
+                onSelect={handleSelect}
+                onNew={handleNew}
+                onDelete={handleDelete}
+              />
+            )}
+            {activeTab === "draft" && (
+              activeNote ? (
+                <DraftEditor
+                  content={draft}
+                  onChange={handleDraftChange}
+                  noteTitle={activeTitle}
+                  onAiRequest={() => {}}
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-ink-700 gap-3">
+                  <p className="text-sm">まずノートタブでノートを選択してください</p>
+                </div>
+              )
+            )}
+            {activeTab === "lyric" && (
+              activeNote ? (
+                <LyricEditor
+                  content={lyric}
+                  onChange={handleLyricChange}
+                  onAiRequest={() => {}}
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-ink-700 gap-3">
+                  <p className="text-sm">まずノートタブでノートを選択してください</p>
+                </div>
+              )
+            )}
+          </div>
 
-        {/* C: 清書ゾーン */}
-        <aside className="flex-shrink-0 overflow-hidden" style={{ width: colC.width }}>
-          {activeNote ? (
-            <LyricEditor
-              content={lyric}
-              onChange={handleLyricChange}
-              onAiRequest={() => {}}
-            />
-          ) : null}
-        </aside>
-
-      </div>
+          {/* フッタータブバー */}
+          <nav className="flex-shrink-0 flex border-t border-ink-800 bg-ink-950">
+            {([
+              { tab: "notes", label: "ノート",   icon: <FileText  size={18} /> },
+              { tab: "draft", label: "ドラフト", icon: <PenLine   size={18} /> },
+              { tab: "lyric", label: "清書",     icon: <BookCheck size={18} /> },
+            ] as const).map(({ tab, label, icon }) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`
+                  flex-1 flex flex-col items-center justify-center py-3 gap-1 transition-colors
+                  ${activeTab === tab
+                    ? "text-amber-400 border-t-2 border-amber-400 -mt-px"
+                    : "text-ink-600 hover:text-ink-400"}
+                `}
+              >
+                {icon}
+                <span className="text-xs" style={{ fontFamily: "var(--font-mono)" }}>{label}</span>
+              </button>
+            ))}
+          </nav>
+        </div>
+      )}
     </div>
   );
 }
