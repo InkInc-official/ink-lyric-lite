@@ -314,7 +314,7 @@ export default function Home() {
   if (!mounted) return null;
 
   return (
-    <div className="flex flex-col h-screen bg-ink-950">
+    <div className="flex flex-col bg-ink-950" style={{ height: "100dvh" }}>
       {/* トップバー */}
       <header className="flex items-center justify-between px-5 py-2 border-b border-ink-800 flex-shrink-0">
         <div className="flex items-center gap-3">
@@ -474,22 +474,22 @@ export default function Home() {
           {/* フッタータブバー */}
           <nav className="flex-shrink-0 flex border-t border-ink-800 bg-ink-950">
             {([
-              { tab: "notes", label: "ノート",   icon: <FileText  size={18} /> },
-              { tab: "draft", label: "ドラフト", icon: <PenLine   size={18} /> },
-              { tab: "lyric", label: "清書",     icon: <BookCheck size={18} /> },
+              { tab: "notes", label: "NOTES",  icon: <FileText  size={16} /> },
+              { tab: "draft", label: "draft",  icon: <PenLine   size={16} /> },
+              { tab: "lyric", label: "final",  icon: <BookCheck size={16} /> },
             ] as const).map(({ tab, label, icon }) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={`
-                  flex-1 flex flex-col items-center justify-center py-3 gap-1 transition-colors
+                  flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors
                   ${activeTab === tab
                     ? "text-amber-400 border-t-2 border-amber-400 -mt-px"
                     : "text-ink-600 hover:text-ink-400"}
                 `}
               >
                 {icon}
-                <span className="text-xs" style={{ fontFamily: "var(--font-mono)" }}>{label}</span>
+                <span className="text-xs tracking-wider" style={{ fontFamily: "var(--font-mono)" }}>{label}</span>
               </button>
             ))}
           </nav>
