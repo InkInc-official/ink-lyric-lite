@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Lyric Studio — 作詞支援",
-  description: "黒井流・作詞支援アプリケーション",
+title: "Ink Lyric Lite",
+description: "AI音楽生成のための作詞支援アプリ | Ink Inc.",
 };
 
 export default function RootLayout({
