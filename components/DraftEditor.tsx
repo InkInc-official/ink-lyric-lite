@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useState } from "react";
 import { countMora, countChars, isSectionTag } from "@/lib/utils";
 import { SectionTag } from "@/lib/types";
+import { Copy, CheckCheck } from "lucide-react";
 
 const SECTION_TAGS: SectionTag[] = [
   "[Main Theme]",
@@ -38,6 +39,7 @@ export default function DraftEditor({
 }: DraftEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const countColRef = useRef<HTMLDivElement>(null);
+  const [copied, setCopied] = useState(false);
 
   const insertTag = useCallback(
     (tag: SectionTag) => {
@@ -71,11 +73,17 @@ export default function DraftEditor({
     if (selected) onAiRequest(selected);
   }, [content, onAiRequest]);
 
+  const handleCopyAll = () => {
+    navigator.clipboard.writeText(content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const lines = content.split("\n");
 
   return (
     <div className="flex flex-col h-full">
-      {/* ヘッダー：セクションタグ + ゾーンラベル */}
+      {/* ヘッダー：ゾーンラベル + セクションタグ + コピーボタン */}
       <div className="flex items-center gap-1 px-3 py-2 border-b border-ink-800 overflow-x-auto flex-shrink-0">
         <span className="text-xs text-ink-600 mr-1 flex-shrink-0" style={{ fontFamily: "var(--font-mono)" }}>
           draft
@@ -89,6 +97,14 @@ export default function DraftEditor({
             {tag}
           </button>
         ))}
+        <button
+          onClick={handleCopyAll}
+          className="flex items-center gap-1 ml-auto flex-shrink-0 px-2 py-0.5 rounded border border-ink-700 text-xs text-ink-400 hover:border-amber-500 hover:text-amber-400 transition-colors"
+          title="ドラフトを全文コピー"
+        >
+          {copied ? <CheckCheck size={11} /> : <Copy size={11} />}
+          <span style={{ fontFamily: "var(--font-mono)" }}>{copied ? "copied" : "copy"}</span>
+        </button>
       </div>
 
       {/* エディタ本体 */}
