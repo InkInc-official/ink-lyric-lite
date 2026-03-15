@@ -363,7 +363,7 @@ export default function Home() {
             </span>
           )}
           <span className="text-xs text-ink-700 select-none" style={{ fontFamily: "var(--font-mono)" }}>
-            v1.0.4
+            v1.0.6
           </span>
         </div>
       </header>
